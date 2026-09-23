@@ -1,0 +1,72 @@
+# Fields whose arguments are object or list values. The imported graphql-js suite only
+# covers reordered object fields, so the conflicting cases below are not tested upstream.
+- name: conflicting input object argument values
+  rule: OverlappingFieldsCanBeMerged
+  schema: &schema |
+    type Query {
+      someField(arg: SomeInput, codes: [String!], nested: OuterInput): String
+    }
+    input SomeInput {
+      a: String
+      b: String
+    }
+    input OuterInput {
+      inner: SomeInput
+    }
+  query: |
+    {
+      someField(arg: { a: "DE" })
+      someField(arg: { a: "US" })
+    }
+  errors:
+    - message: Fields "someField" conflict because they have differing arguments. Use different aliases on the fields to fetch both if this was intentional.
+      locations:
+        - {line: 2, column: 3}
+        - {line: 3, column: 3}
+
+- name: conflicting list argument values
+  rule: OverlappingFieldsCanBeMerged
+  schema: *schema
+  query: |
+    {
+      someField(codes: ["DE", "US"])
+      someField(codes: ["US", "DE"])
+    }
+  errors:
+    - message: Fields "someField" conflict because they have differing arguments. Use different aliases on the fields to fetch both if this was intentional.
+      locations:
+        - {line: 2, column: 3}
+        - {line: 3, column: 3}
+
+- name: conflicting nested input object argument values
+  rule: OverlappingFieldsCanBeMerged
+  schema: *schema
+  query: |
+    {
+      someField(nested: { inner: { a: "DE" } })
+      someField(nested: { inner: { a: "US" } })
+    }
+  errors:
+    - message: Fields "someField" conflict because they have differing arguments. Use different aliases on the fields to fetch both if this was intentional.
+      locations:
+        - {line: 2, column: 3}
+        - {line: 3, column: 3}
+
+- name: identical input object arguments
+  rule: OverlappingFieldsCanBeMerged
+  schema: *schema
+  query: |
+    {
+      someField(arg: { a: "DE", b: "Germany" })
+      someField(arg: { a: "DE", b: "Germany" })
+    }
+
+# Input object field order is not significant, so these still merge.
+- name: input object arguments with fields in a different order
+  rule: OverlappingFieldsCanBeMerged
+  schema: *schema
+  query: |
+    {
+      someField(arg: { a: "DE", b: "Germany" })
+      someField(arg: { b: "Germany", a: "DE" })
+    }
